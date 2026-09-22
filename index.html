@@ -68,11 +68,11 @@
           <span class="menu-mark" aria-hidden="true"></span>
         </button>
         <nav class="site-nav" id="navigation" aria-label="Navegación principal">
-          <a href="#capacidades">Capacidades</a>
+          <a href="#problema">Señales</a>
+          <a href="#capacidades">Soluciones</a>
           <a href="#evidencia">Evidencia</a>
-          <a href="#proceso">Cómo trabajo</a>
-          <a href="#empezar">Empezar</a>
-          <a href="#responsabilidad">MMJ Systems</a>
+          <a href="#proceso">Proceso</a>
+          <a href="#responsabilidad">Equipo</a>
           <a class="nav-contact" href="#contacto">Conversemos</a>
         </nav>
       </div>
@@ -135,7 +135,7 @@
             </ol>
             <footer>
               <strong>José Mercado</strong>
-              <span>Fundador e ingeniero</span>
+              <span>Fundador y desarrollador de software</span>
             </footer>
           </aside>
         </div>
@@ -166,7 +166,7 @@
       >
         <div class="shell">
           <div class="section-index">
-            <span>I</span><span>Señales operacionales</span>
+            <span>I</span><span>Señales</span>
           </div>
           <div class="intro-grid friction-intro">
             <div>
@@ -234,12 +234,12 @@
       >
         <div class="shell">
           <div class="section-index">
-            <span>II</span><span>Qué se puede resolver</span>
+            <span>II</span><span>Soluciones</span>
           </div>
           <div class="intro-grid">
             <div>
-              <p class="kicker">Lo que puedo construir</p>
-              <h2 id="capabilities-title">Piezas que hacen que una operación funcione.</h2>
+              <p class="kicker">Combinación a medida</p>
+              <h2 id="capabilities-title">Soluciones que se arman según tu problema.</h2>
             </div>
             <p class="section-lead">
               No vendo un paquete cerrado. Combino software, automatización y
@@ -414,7 +414,7 @@
       >
         <div class="shell">
           <div class="section-index">
-            <span>III</span><span>Qué respalda el trabajo</span>
+            <span>III</span><span>Evidencia</span>
           </div>
           <div class="intro-grid">
             <div>
@@ -442,52 +442,111 @@
           </figure>
 
           <div class="evidence-list">
-            <article class="evidence-item">
-              <div class="evidence-number">E—01</div>
-              <div>
-                <p class="status">Producto propio · piloto avanzado</p>
-                <h3>Inteligencia para documentos de compras</h3>
+            <details class="evidence-item" name="evidencia">
+              <summary>
+                <span class="evidence-number">E—01</span>
+                <span class="evidence-head">
+                  <span class="status">Producto propio · piloto avanzado</span>
+                  <span class="evidence-title">Inteligencia para documentos de compras</span>
+                </span>
+                <span class="evidence-lead">
+                  Pipeline documental que combina extracción asistida, búsqueda
+                  semántica local, trazabilidad y evaluación contra muestras
+                  etiquetadas.
+                </span>
+              </summary>
+              <div class="evidence-body">
+                <p>
+                  Toma el material tal como llega —bases, licitaciones, PDFs
+                  escaneados— y lo convierte en datos estructurados:
+                  extracción asistida por IA, índice de búsqueda semántica
+                  local y rastro auditable de cada decisión. La calidad se
+                  mide contra muestras etiquetadas antes de afirmar
+                  cualquier resultado.
+                </p>
+                <p class="evidence-state">
+                  Estado: producto propio en piloto avanzado. No es un contrato
+                  comercial ni un servicio certificado en producción.
+                </p>
               </div>
-              <p>
-                Pipeline documental que combina extracción asistida, búsqueda
-                semántica local, trazabilidad y evaluación contra muestras
-                etiquetadas.
-              </p>
-            </article>
-            <article class="evidence-item">
-              <div class="evidence-number">E—02</div>
-              <div>
-                <p class="status">Sistema operativo interno</p>
-                <h3>Automatización documental auditable</h3>
+            </details>
+            <details class="evidence-item" name="evidencia">
+              <summary>
+                <span class="evidence-number">E—02</span>
+                <span class="evidence-head">
+                  <span class="status">Sistema operativo interno</span>
+                  <span class="evidence-title">Automatización documental auditable</span>
+                </span>
+                <span class="evidence-lead">
+                  Un flujo auditable procesó más de veinte mil correos,
+                  reconcilió registros y produjo manifiestos de integridad.
+                </span>
+              </summary>
+              <div class="evidence-body">
+                <p>
+                  Lee el correo sin tocarlo —acceso de solo lectura—,
+                  reconcilia cada registro contra un índice y cierra con un
+                  manifiesto de integridad con hashes. Años después se puede
+                  verificar qué se procesó, qué falta y quién intervino.
+                </p>
+                <p class="evidence-state">
+                  Estado: sistema operativo interno. No se identifican partes
+                  privadas ni se presenta como caso de cliente.
+                </p>
               </div>
-              <p>
-                Un flujo auditable procesó más de veinte mil correos, reconcilió
-                registros y produjo manifiestos de integridad.
-              </p>
-            </article>
-            <article class="evidence-item">
-              <div class="evidence-number">E—03</div>
-              <div>
-                <p class="status">Proyectos construidos</p>
-                <h3>Plataformas operativas</h3>
+            </details>
+            <details class="evidence-item" name="evidencia">
+              <summary>
+                <span class="evidence-number">E—03</span>
+                <span class="evidence-head">
+                  <span class="status">Proyectos construidos</span>
+                  <span class="evidence-title">Plataformas operativas</span>
+                </span>
+                <span class="evidence-lead">
+                  Aplicaciones web transaccionales construidas con
+                  autenticación, roles, pagos, reservas, pedidos, paneles de
+                  administración, pruebas y despliegue.
+                </span>
+              </summary>
+              <div class="evidence-body">
+                <p>
+                  Sistemas que operan todos los días: autenticación con roles,
+                  pagos o reservas según el caso, panel de administración,
+                  pruebas automatizadas y despliegue en servidor propio o del
+                  cliente. Se construyen por etapas, del MVP al sistema
+                  completo.
+                </p>
+                <p class="evidence-state">
+                  Estado: proyectos construidos y desplegados. Nombres de
+                  productos o clientes, solo con aprobación separada.
+                </p>
               </div>
-              <p>
-                Aplicaciones web transaccionales construidas con autenticación,
-                roles, pagos, reservas, pedidos, paneles de administración,
-                pruebas y despliegue.
-              </p>
-            </article>
-            <article class="evidence-item">
-              <div class="evidence-number">E—04</div>
-              <div>
-                <p class="status">Capacidad demostrada</p>
-                <h3>IA local y privacidad</h3>
+            </details>
+            <details class="evidence-item" name="evidencia">
+              <summary>
+                <span class="evidence-number">E—04</span>
+                <span class="evidence-head">
+                  <span class="status">Capacidad demostrada</span>
+                  <span class="evidence-title">IA local y privacidad</span>
+                </span>
+                <span class="evidence-lead">
+                  Embeddings locales, OCR y reconocimiento de voz operados
+                  cuando el contenido debe permanecer dentro de la organización.
+                </span>
+              </summary>
+              <div class="evidence-body">
+                <p>
+                  Embeddings, OCR y reconocimiento de voz corriendo en hardware
+                  propio: el contenido sensible nunca sale de la organización.
+                  La calidad se mide contra muestras reales antes de prometer
+                  resultados.
+                </p>
+                <p class="evidence-state">
+                  Estado: capacidad demostrada en operación interna. Sin
+                  benchmark sobre tus datos, no hay promesa de calidad.
+                </p>
               </div>
-              <p>
-                Embeddings locales, OCR y reconocimiento de voz operados cuando
-                el contenido debe permanecer dentro de la organización.
-              </p>
-            </article>
+            </details>
           </div>
         </div>
       </section>
@@ -499,7 +558,7 @@
       >
         <div class="shell">
           <div class="section-index">
-            <span>IV</span><span>Cómo se avanza</span>
+            <span>IV</span><span>Proceso</span>
           </div>
           <div class="intro-grid">
             <div>
@@ -570,7 +629,7 @@
       >
         <div class="shell">
           <div class="section-index">
-            <span>V</span><span>Por dónde empezar</span>
+            <span>V</span><span>Empezar</span>
           </div>
           <div class="intro-grid">
             <div>
@@ -640,7 +699,7 @@
       >
         <div class="shell">
           <div class="section-index">
-            <span>VI</span><span>Antes de escribir</span>
+            <span>VI</span><span>Preguntas</span>
           </div>
           <div class="intro-grid">
             <div>
@@ -706,11 +765,11 @@
       >
         <div class="shell accountability-grid">
           <div class="section-index">
-            <span>VII</span><span>Responsabilidad directa</span>
+            <span>VII</span><span>Equipo</span>
           </div>
           <div>
-            <p class="kicker">MMJ Systems</p>
-            <h2 id="accountability-title">Una empresa pequeña a propósito.</h2>
+            <p class="kicker">Responsabilidad directa</p>
+            <h2 id="accountability-title">Un equipo pequeño a propósito.</h2>
           </div>
           <div class="founder-note">
             <p class="founder-name">José Mercado</p>
@@ -722,6 +781,34 @@
             <p class="founder-caption">
               Sin capas comerciales ni traspasos entre equipos.
             </p>
+          </div>
+          <div class="team">
+            <h3 class="team-title">Quiénes están detrás</h3>
+            <ul class="team-grid">
+              <li class="team-card">
+                <img
+                  class="team-photo"
+                  src="assets/equipo-jose.jpg"
+                  alt="Retrato de José Mercado"
+                  width="800"
+                  height="800"
+                  loading="lazy"
+                  decoding="async"
+                >
+                <p class="team-name">José Mercado</p>
+                <p class="team-role">Fundador y desarrollador de software</p>
+              </li>
+              <li class="team-card">
+                <span class="team-photo team-photo-placeholder" aria-hidden="true">RM</span>
+                <p class="team-name">Rubén Mercado</p>
+                <p class="team-role">Socio · Ingeniero electrónico y telecomunicaciones</p>
+              </li>
+              <li class="team-card">
+                <span class="team-photo team-photo-placeholder" aria-hidden="true">DB</span>
+                <p class="team-name">David Ballester</p>
+                <p class="team-role">Socio · Ingeniero en computación</p>
+              </li>
+            </ul>
           </div>
         </div>
       </section>
@@ -836,10 +923,11 @@
           </span>
         </a>
         <nav class="footer-nav" aria-label="Navegación secundaria">
-          <a href="#capacidades">Capacidades</a>
+          <a href="#problema">Señales</a>
+          <a href="#capacidades">Soluciones</a>
           <a href="#evidencia">Evidencia</a>
-          <a href="#proceso">Cómo trabajo</a>
-          <a href="#empezar">Empezar</a>
+          <a href="#proceso">Proceso</a>
+          <a href="#responsabilidad">Equipo</a>
           <a href="#contacto">Conversemos</a>
         </nav>
         <p>© <span data-year>2026</span> MMJ Systems · O’Higgins, Chile</p>
