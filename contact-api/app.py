@@ -14,7 +14,7 @@ Contrato:
   OPTIONS     -> preflight CORS.
 
 Configuración por variables de entorno (ver mmj-contact-api.env.ejemplo):
-  PORT, ALLOWED_ORIGINS, TO_EMAIL, FROM_EMAIL,
+  HOST, PORT, ALLOWED_ORIGINS, TO_EMAIL, FROM_EMAIL,
   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
   RATE_MAX, RATE_VENTANA_SEG, STORE_FILE, LOG_FILE.
 """
@@ -36,6 +36,7 @@ def env(name, default=""):
     return os.environ.get(name, default)
 
 
+HOST = env("HOST", "127.0.0.1")
 PORT = int(env("PORT", "8471"))
 ALLOWED_ORIGINS = [o.strip() for o in env("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 TO_EMAIL = env("TO_EMAIL", "contacto.mmjsystems@gmail.com")
@@ -224,8 +225,8 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     if not SMTP_HOST:
         raise SystemExit("Falta SMTP_HOST (ver mmj-contact-api.env.ejemplo).")
-    servidor = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print("contact-api en 127.0.0.1:{}".format(PORT), flush=True)
+    servidor = ThreadingHTTPServer((HOST, PORT), Handler)
+    print("contact-api en {}:{}".format(HOST, PORT), flush=True)
     servidor.serve_forever()
 
 

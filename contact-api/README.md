@@ -50,6 +50,26 @@ Proxy HTTPS (Caddy, recomendado):
 sudo systemctl reload caddy
 ```
 
+## 2bis. Docker / Coolify (camino actual recomendado)
+
+La imagen no tiene dependencias (solo `app.py`). En Coolify:
+
+1. **New Resource → Dockerfile** apuntando al repo/rama que contiene `contact-api/`
+   (build context = `contact-api/`, dockerfile = `Dockerfile`).
+2. **Environment variables** (Settings → Environment, marcar `SMTP_PASS` como *Build Variable?* NO —
+   solo runtime):
+   `HOST=0.0.0.0` · `PORT=8471` · `ALLOWED_ORIGINS=https://mmjsystems.cl,https://www.mmjsystems.cl` ·
+   `TO_EMAIL=contacto.mmjsystems@gmail.com` · `FROM_EMAIL=contacto.mmjsystems@gmail.com` ·
+   `SMTP_HOST=smtp.gmail.com` · `SMTP_PORT=587` · `SMTP_USER=contacto.mmjsystems@gmail.com` ·
+   `SMTP_PASS=<app password>` · `RATE_MAX=5` · `RATE_VENTANA_SEG=3600`.
+3. **Domains**: `api.mmjsystems.cl` → puerto `8471` (Coolify termina HTTPS con su proxy).
+4. **Persistent Storage** (opcional): volumen en `/data` para conservar `mensajes.jsonl`
+   (respaldo de mensajes). Sin volumen, el respaldo vive solo mientras el contenedor exista.
+5. **Health check**: `GET /salud` (ya lo usa el Dockerfile).
+6. DNS: `api` → A con la IP del servidor Coolify/Hetzner.
+
+Probar igual que en la sección 3.
+
 ## 3. Probar
 
 ```bash
