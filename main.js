@@ -244,7 +244,7 @@ if (form) {
       });
       if (!response.ok) throw new Error("bad-status");
       form.reset();
-      say("Mensaje enviado. Te respondo a la brevedad.");
+      say("Mensaje enviado. Te respondemos a la brevedad.");
     } catch {
       const subject = encodeURIComponent("Conversación inicial con MMJ Systems");
       const body = encodeURIComponent(
@@ -252,7 +252,7 @@ if (form) {
         (payload.empresa ? " — " + payload.empresa : "") +
         "\n\n" + payload.mensaje,
       );
-      say("No se pudo enviar el formulario. Escríbeme directo: ");
+      say("No se pudo enviar el formulario. Escríbenos directo: ");
       if (status) {
         const link = document.createElement("a");
         link.href = "mailto:" + CONTACT_EMAIL + "?subject=" + subject + "&body=" + body;
