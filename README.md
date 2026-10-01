@@ -4,8 +4,9 @@ Sitio público de MMJ Systems.
 
 **Web:** https://mmjsystems.cl/
 
-Este repositorio contiene únicamente los archivos estáticos publicados
-mediante GitHub Pages. Sin dependencias remotas, sin analítica, sin cookies.
+Este repositorio contiene el sitio estático (actualmente publicado mediante
+GitHub Pages) y una imagen Nginx para desplegarlo también en Coolify.
+Sin dependencias remotas, sin analítica, sin cookies.
 
 ## Vista local
 
@@ -28,9 +29,13 @@ Abrir `http://127.0.0.1:8123/`.
 
 ## Publicar
 
-1. Merge de `dev` a `main` (el push a `main` publica en Pages).
-2. DNS según `contact-api/README.md` (apex → GitHub Pages,
-   `api` → Hetzner) y dominio personalizado `mmjsystems.cl` en
-   Settings → Pages con HTTPS forzado.
-3. Desplegar `contact-api/` en Hetzner para activar el formulario.
-   Sin ese paso, el formulario muestra la vía directa por correo.
+- GitHub Pages sigue sirviendo `mmjsystems.cl` desde `main` hasta cambiar DNS.
+- Coolify: crear aplicación desde repositorio público `Ontos-2021/mmj-systems`,
+  rama `main`, build pack **Dockerfile** en la raíz (`/Dockerfile`), contexto
+  raíz y puerto interno **80**. No requiere variables ni volumen. Asignar un
+  subdominio de prueba HTTPS, comprobar que funciona y recién entonces decidir
+  la migración del dominio principal. `Dockerfile` incluye solo el frontend;
+  `contact-api/` es un recurso separado y el formulario seguirá usando
+  `https://api.mmjsystems.cl/contacto` (con fallback por correo si no responde).
+- Para la publicación anterior en Pages: el push a `main` publica en Pages;
+  `CNAME` y la configuración del dominio apuntan a `mmjsystems.cl`.
