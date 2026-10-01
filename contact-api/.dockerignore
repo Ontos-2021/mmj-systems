@@ -1,0 +1,6 @@
+*.md
+*.service
+*.Caddyfile
+*.env.ejemplo
+.env*
+__pycache__/
