@@ -9,3 +9,5 @@
 !main.js
 !assets/
 !assets/**
+!health/
+!health/web.sh
