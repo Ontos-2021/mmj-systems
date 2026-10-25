@@ -10,7 +10,8 @@ Contrato:
     mensaje (requerido, máx 2000), empresa (opcional, máx 80),
     sitio (honeypot: si viene con contenido se responde éxito falso).
   Responde JSON {"ok": true} o {"ok": false, "error": "..."}.
-  GET /salud  -> {"ok": true} (chequeo de vida).
+  GET /salud  -> {"ok": true} (vida, no toca almacenamiento).
+  GET /salud/listo -> 200 si STORE_FILE es escribible; 503 sanitizado si no.
   OPTIONS     -> preflight CORS.
 
 Configuración por variables de entorno (ver mmj-contact-api.env.ejemplo):
