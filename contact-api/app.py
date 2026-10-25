@@ -135,11 +135,13 @@ class Handler(BaseHTTPRequestHandler):
         origen = self.headers.get("Origin", "")
         return origen if origen in ALLOWED_ORIGINS else ""
 
-    def _responder(self, codigo, cuerpo, origen=""):
+    def _responder(self, codigo, cuerpo, origen="", no_store=False):
         datos = json.dumps(cuerpo).encode("utf-8")
         self.send_response(codigo)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(datos)))
+        if no_store:
+            self.send_header("Cache-Control", "no-store")
         if origen:
             self.send_header("Access-Control-Allow-Origin", origen)
             self.send_header("Vary", "Origin")
@@ -160,7 +162,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
         ruta = urllib.parse.urlparse(self.path).path
         if ruta == "/salud":
-            self._responder(200, {"ok": True})
+            self._responder(200, {"ok": True}, no_store=True)
         else:
             self._responder(404, {"ok": False, "error": "no encontrado"})
 
