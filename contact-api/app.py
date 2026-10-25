@@ -62,6 +62,20 @@ def log(evento):
         pass
 
 
+def almacenamiento_listo():
+    """Readiness: escribe y borra un archivo temporal en el directorio de STORE_FILE."""
+    directorio = os.path.dirname(STORE_FILE) or "."
+    prueba = os.path.join(directorio, ".listo-{}".format(os.getpid()))
+    try:
+        os.makedirs(directorio, exist_ok=True)
+        with open(prueba, "w", encoding="utf-8") as f:
+            f.write("ok")
+        os.remove(prueba)
+        return True
+    except OSError:
+        return False
+
+
 def guardar_mensaje(payload, ip):
     try:
         os.makedirs(os.path.dirname(STORE_FILE), exist_ok=True)
@@ -163,6 +177,11 @@ class Handler(BaseHTTPRequestHandler):
         ruta = urllib.parse.urlparse(self.path).path
         if ruta == "/salud":
             self._responder(200, {"ok": True}, no_store=True)
+        elif ruta == "/salud/listo":
+            if almacenamiento_listo():
+                self._responder(200, {"ok": True}, no_store=True)
+            else:
+                self._responder(503, {"ok": False, "error": "no disponible"}, no_store=True)
         else:
             self._responder(404, {"ok": False, "error": "no encontrado"})
 

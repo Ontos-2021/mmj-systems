@@ -76,6 +76,21 @@ class ContactHealthTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(headers.get('Cache-Control'), 'no-store')
 
+    def test_readiness_ok_when_storage_is_writable_and_leaves_no_probe(self):
+        status, headers, raw = self.request('/salud/listo')
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw), {'ok': True})
+        self.assertEqual(headers.get('Cache-Control'), 'no-store')
+        self.assertEqual(list(self.directory.iterdir()), [])
+
+    def test_readiness_503_sanitized_when_storage_is_unwritable(self):
+        self.app.STORE_FILE = '/proc/mmj-no-escribible/mensajes.jsonl'
+        status, headers, raw = self.request('/salud/listo')
+        self.assertEqual(status, 503)
+        self.assertEqual(json.loads(raw), {'ok': False, 'error': 'no disponible'})
+        self.assertNotIn(b'/proc', raw)
+        self.assertEqual(headers.get('Cache-Control'), 'no-store')
+
 
 if __name__ == '__main__':
     unittest.main()
