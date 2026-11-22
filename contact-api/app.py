@@ -16,20 +16,43 @@ Contrato:
 Configuración por variables de entorno (ver mmj-contact-api.env.ejemplo):
   HOST, PORT, ALLOWED_ORIGINS, TO_EMAIL, FROM_EMAIL,
   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
-  RATE_MAX, RATE_VENTANA_SEG, STORE_FILE, LOG_FILE.
+  RATE_MAX, RATE_VENTANA_SEG, STORE_FILE, LOG_FILE, CONFIRMACION_ACTIVA.
 """
 
 import json
 import os
 import re
 import smtplib
+import ssl
 import time
 import urllib.parse
+from email.errors import HeaderParseError
+from email.headerregistry import Address
 from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Lock
+from uuid import uuid4
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MAX_BODY = 64 * 1024
+ORIGENES_WEB = {"https://mmjsystems.cl", "https://www.mmjsystems.cl"}
+CONFIRMACIONES_MAX = 30
+CONFIRMACIONES_VENTANA_SEG = 3600
+CONFIRMACION_HTML = Path(__file__).with_name("confirmacion.html")
+CONFIRMACION_ASUNTO = "Recibimos tu mensaje | MMJ Systems"
+CONFIRMACION_TEXTO = """Gracias por contactarnos.
+
+Recibimos tu consulta. José Mercado y el equipo de MMJ Systems la revisarán
+y te responderán a esta dirección.
+
+No necesitas volver a enviar el formulario. Si quieres agregar algo, puedes
+responder a este correo. Por favor, no incluyas datos sensibles.
+
+Equipo MMJ Systems
+https://mmjsystems.cl/
+"""
 
 
 def env(name, default=""):
@@ -49,8 +72,11 @@ RATE_MAX = int(env("RATE_MAX", "5"))
 RATE_VENTANA_SEG = int(env("RATE_VENTANA_SEG", "3600"))
 STORE_FILE = env("STORE_FILE", "/var/lib/mmj-contact-api/mensajes.jsonl")
 LOG_FILE = env("LOG_FILE", "/var/lib/mmj-contact-api/api.log")
+CONFIRMACION_ACTIVA = env("CONFIRMACION_ACTIVA").strip().lower() in {"1", "true"}
 
 _intentos = {}
+_confirmaciones = {}
+_lock_confirmaciones = Lock()
 
 
 def log(evento):
@@ -89,6 +115,27 @@ def excede_limite(ip):
     return False
 
 
+def reservar_confirmacion(email):
+    ahora = time.monotonic()
+    destino = email.casefold()
+    with _lock_confirmaciones:
+        for correo, marca in list(_confirmaciones.items()):
+            if ahora - marca >= CONFIRMACIONES_VENTANA_SEG:
+                del _confirmaciones[correo]
+        if destino in _confirmaciones or len(_confirmaciones) >= CONFIRMACIONES_MAX:
+            return False
+        _confirmaciones[destino] = ahora
+        return True
+
+
+def enviar_por_smtp(msg, *, timeout=20, destinatarios=None):
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=timeout) as s:
+        s.starttls(context=ssl.create_default_context())
+        if SMTP_USER:
+            s.login(SMTP_USER, SMTP_PASS)
+        s.send_message(msg, to_addrs=destinatarios)
+
+
 def enviar_correo(payload):
     remitente = FROM_EMAIL or SMTP_USER
     msg = EmailMessage()
@@ -99,17 +146,53 @@ def enviar_correo(payload):
     msg["Subject"] = asunto
     msg["From"] = remitente
     msg["To"] = TO_EMAIL
-    msg["Reply-To"] = payload["email"]
+    msg["Reply-To"] = Address(addr_spec=payload["email"])
     msg.set_content(
         "Nombre: {}\nEmpresa: {}\nCorreo: {}\n\n{}".format(
             payload["nombre"], empresa or "-", payload["email"], payload["mensaje"]
         )
     )
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
-        s.starttls()
-        if SMTP_USER:
-            s.login(SMTP_USER, SMTP_PASS)
-        s.send_message(msg)
+    enviar_por_smtp(msg)
+
+
+def registrar_confirmacion(evento, referencia, **detalles):
+    registro = {"evento": evento, "referencia": referencia, **detalles}
+    log(registro)
+    print(json.dumps(registro), flush=True)
+
+
+def enviar_confirmacion(email, referencia):
+    if not reservar_confirmacion(email):
+        registrar_confirmacion("confirmacion_limitada", referencia)
+        return
+    try:
+        destino = Address(addr_spec=email)
+        msg = EmailMessage()
+        msg["Subject"] = CONFIRMACION_ASUNTO
+        msg["From"] = FROM_EMAIL or SMTP_USER
+        msg["To"] = destino
+        msg["Reply-To"] = TO_EMAIL
+        msg["Date"] = formatdate(usegmt=True)
+        msg["Message-ID"] = make_msgid(domain="mmjsystems.cl")
+        msg["Auto-Submitted"] = "auto-replied"
+        msg["X-Auto-Response-Suppress"] = "All"
+        msg.set_content(CONFIRMACION_TEXTO)
+        msg.add_alternative(CONFIRMACION_HTML.read_text(encoding="utf-8"), subtype="html")
+        enviar_por_smtp(msg, timeout=8, destinatarios=[destino.addr_spec])
+    except (OSError, ValueError, HeaderParseError) as exc:
+        registrar_confirmacion("error_confirmacion", referencia, tipo=type(exc).__name__)
+    else:
+        registrar_confirmacion("confirmacion_aceptada", referencia)
+
+
+def email_valido(email):
+    if len(email) > 120 or not EMAIL_RE.fullmatch(email):
+        return False
+    try:
+        direccion = Address(addr_spec=email)
+    except (ValueError, HeaderParseError):
+        return False
+    return direccion.addr_spec == email
 
 
 def validar(payload):
@@ -119,7 +202,7 @@ def validar(payload):
     empresa = str(payload.get("empresa", "")).strip()
     if len(nombre) < 2 or len(nombre) > 80:
         return None, "nombre inválido"
-    if not EMAIL_RE.match(email) or len(email) > 120:
+    if not email_valido(email):
         return None, "correo inválido"
     if len(mensaje) < 10 or len(mensaje) > 2000:
         return None, "mensaje inválido"
@@ -135,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
         origen = self.headers.get("Origin", "")
         return origen if origen in ALLOWED_ORIGINS else ""
 
-    def _responder(self, codigo, cuerpo, origen=""):
+    def _responder(self, codigo, cuerpo, origen="", *, referencia=None):
         datos = json.dumps(cuerpo).encode("utf-8")
         self.send_response(codigo)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -143,6 +226,9 @@ class Handler(BaseHTTPRequestHandler):
         if origen:
             self.send_header("Access-Control-Allow-Origin", origen)
             self.send_header("Vary", "Origin")
+        if referencia:
+            self.send_header("X-MMJ-Confirmacion-ID", referencia)
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(datos)
 
@@ -216,7 +302,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         guardar_mensaje(datos, ip)
         log({"evento": "mensaje", "ip": ip, "email": datos["email"]})
-        self._responder(200, {"ok": True}, origen)
+        confirma = CONFIRMACION_ACTIVA and ruta == "/contacto" and origen in ORIGENES_WEB
+        referencia = uuid4().hex if confirma else None
+        try:
+            self._responder(200, {"ok": True}, origen, referencia=referencia)
+        finally:
+            if referencia:
+                enviar_confirmacion(datos["email"], referencia)
 
     def log_message(self, format, *args):  # noqa: A002 - firma de stdlib
         pass

@@ -7,6 +7,7 @@ correo. Pensado para correr detrás de Caddy o nginx con HTTPS.
 ## Archivos
 
 - `app.py` — el servicio.
+- `confirmacion.html` — plantilla HTML del acuse, sin imágenes remotas ni rastreadores.
 - `mmj-contact-api.service` — unidad systemd.
 - `mmj-contact-api.env.ejemplo` — plantilla de configuración (sin secretos).
 - `proxy.Caddyfile` — fragmento de reverse proxy.
@@ -30,7 +31,7 @@ Settings → Pages → Custom domain → `mmjsystems.cl`, y activar
 
 ```bash
 sudo mkdir -p /opt/mmj-contact-api
-sudo cp app.py /opt/mmj-contact-api/app.py
+sudo cp app.py confirmacion.html /opt/mmj-contact-api/
 sudo cp mmj-contact-api.service /etc/systemd/system/mmj-contact-api.service
 sudo cp mmj-contact-api.env.ejemplo /etc/mmj-contact-api.env
 sudo chmod 600 /etc/mmj-contact-api.env
@@ -52,7 +53,7 @@ sudo systemctl reload caddy
 
 ## 2bis. Docker / Coolify (camino actual recomendado)
 
-La imagen no tiene dependencias (solo `app.py`). En Coolify:
+La imagen no tiene dependencias de Python. En Coolify:
 
 1. **New Resource → Dockerfile** apuntando al repo/rama que contiene `contact-api/`
    (build context = `contact-api/`, dockerfile = `Dockerfile`).
@@ -80,12 +81,37 @@ curl -i -X POST https://api.mmjsystems.cl/contacto \
   -d '{"nombre":"Prueba","email":"prueba@example.com","mensaje":"Mensaje de prueba del formulario."}'
 ```
 
-Lo esperado: `{"ok": true}` y el correo en la bandeja de
-`contacto.mmjsystems@gmail.com` con Reply-To al remitente.
+Lo esperado: `{"ok": true}` y el correo en la bandeja configurada en
+`TO_EMAIL` con Reply-To al remitente. Si el acuse está activo, usa una dirección
+de prueba propia en lugar de `prueba@example.com` cuando quieras verificar la
+recepción real.
 
 Límites incluidos: validación de campos, honeypot `sitio`, tope de
 5 mensajes por hora por IP, CORS solo para `mmjsystems.cl`.
 Copia local de cada mensaje en `mensajes.jsonl` (respaldo).
+
+### Acuse automático al cliente
+
+La confirmación está apagada por defecto. Tras aprobar la plantilla, desplegar
+esta versión de la API y aplicar `CONFIRMACION_ACTIVA=true` como variable de
+ejecución en Coolify. Reutiliza el remitente SMTP y las respuestas del cliente
+van a `TO_EMAIL` (en producción, `clientes@mmjsystems.cl`).
+No hace falta cambiar el sitio ni el DNS.
+
+El acuse se intenta solo después de que SMTP acepta la notificación interna
+y de responder al formulario de producción en `/contacto`. Lleva HTML y texto
+plano, sin copiar datos de la consulta. Un fallo del acuse no invalida el
+formulario ni reenvía el aviso al equipo. Usa `X-MMJ-Confirmacion-ID` de la
+respuesta HTTP para buscar `confirmacion_aceptada` o `error_confirmacion` en los
+logs de Coolify, sin incluir la dirección ni el mensaje del cliente.
+Solo se intenta un acuse por destinatario y un máximo de 30 por hora por
+instancia de la API, sin bloquear consultas válidas. No hay cola ni reintentos.
+
+Pruebas locales con SMTP simulado (desde la raíz del repositorio):
+
+```bash
+python3 -B -m unittest discover -s contact-api
+```
 
 ## 4. Operación
 
@@ -95,5 +121,5 @@ sudo journalctl -u mmj-contact-api -n 50
 sudo tail -n 20 /var/lib/mmj-contact-api/api.log
 ```
 
-Actualizar: copiar el nuevo `app.py` a `/opt/mmj-contact-api/` y
+Actualizar: copiar `app.py` y `confirmacion.html` a `/opt/mmj-contact-api/` y
 `sudo systemctl restart mmj-contact-api`.
