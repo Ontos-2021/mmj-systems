@@ -102,7 +102,7 @@ if (form) {
       });
       if (!response.ok) throw new Error("bad-status");
       form.reset();
-      say("Mensaje enviado. Te respondemos a la brevedad.");
+      say("Consulta enviada. Te responderemos por correo para coordinar.");
     } catch {
       const subject = encodeURIComponent("Conversación inicial con MMJ Systems");
       const body = encodeURIComponent(

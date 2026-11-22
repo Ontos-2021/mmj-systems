@@ -25,27 +25,28 @@ solo envía mensajes en los dominios de producción.
 - `estudios-juridicos/index.html` — automatización de un flujo de correo jurídico.
 - `guias/automatizar-correos-y-planillas/index.html` — guía para elegir, probar y medir un flujo.
 - `styles.css` — sistema visual y responsive.
-- `main.js` — menú móvil y envío del formulario.
-- `story.js` — recorrido de la portada. Vincula los fotogramas a la posición
-  de lectura, con profundidad en el fondo, los carriles y el encuadre de la
-  película. Las imágenes editoriales también tienen parallax, más suave en móvil.
+- `main.js` — menú móvil en páginas secundarias, origen de las consultas y envío del formulario.
+- `story.js` — sincroniza el fotograma y los tres pasos del ejemplo con el
+  desplazamiento de la página. Actualiza también el parallax del fondo, los
+  carriles, el encuadre y la imagen de diagnóstico.
 - `assets/` — logo Convergencia III (variante web de tres entradas), retratos,
   imágenes WebP e imagen para compartir. `logo-mmj.png` se deriva del SVG de
   Convergencia III para los datos estructurados. Se conserva el SVG original.
 - `assets/fonts/` — Manrope e IBM Plex Sans en WOFF2, con sus licencias OFL.
 - `assets/recorrido/` — toma ilustrativa generada con Higgsfield Seedance 2.5,
-  en H.264 sin audio, en versiones de escritorio y móvil. Los pósteres WebP
-  son el primer fotograma de cada versión. Se descarga solo el video
-  correspondiente al ancho y al acercarse a los capítulos con el scroll.
-- `assets/profundidad/` — fondo e imágenes ilustrativas de Señales y Diagnóstico,
-  generadas con Higgsfield y guardadas como WebP en tamaños adaptados al ancho.
+  en H.264 sin audio. Primero se muestra el póster; al acercarse a los pasos
+  mediante scroll se carga solo el clip correspondiente al ancho de la pantalla.
+- `assets/profundidad/` — fondo y fotografías editoriales WebP en versiones
+  de escritorio y móvil.
 - `contact-api/` — endpoint del formulario para el servidor Hetzner
   (ver `contact-api/README.md`). Solo biblioteca estándar de Python.
 - `CNAME`, `robots.txt`, `sitemap.xml`, `404.html` — publicación en
   GitHub Pages con dominio propio.
 
-La historia se puede leer sin el video (vista estática, movimiento reducido,
-ahorro de datos cuando el navegador lo indica, error de video o sin JavaScript).
+«Vista estática» permite leer el recorrido sin movimiento. También se muestra
+así sin JavaScript, con movimiento reducido, con ahorro de datos indicado por
+el navegador, en pantallas de poca altura o si falla el video. El contacto
+por correo directo y los tres pasos siguen accesibles.
 
 ## Origen de las consultas
 
@@ -55,6 +56,14 @@ acepta `utm_source` (`linkedin`, `email`, `referido`, `google`, `meta`,
 Los enlaces marcados entre Inicio, Estudios jurídicos y la guía conservan solo
 esos valores permitidos. No se usan cookies, rastreadores ni almacenamiento
 del navegador.
+
+Para validar el nicho jurídico, comparte la página desde un solo canal y usa
+los dos mensajes por separado. Por ejemplo, en LinkedIn, usa
+`/estudios-juridicos/?utm_source=linkedin&utm_content=ahorro-tiempo` y sustituye
+`ahorro-tiempo` por `pendientes-sin-responsable` para el segundo mensaje.
+Con el origen de la notificación, lleva una cuenta semanal por mensaje de
+consultas recibidas, conversaciones realizadas sobre un proceso concreto y
+diagnósticos contratados. No hace falta añadir rastreadores ni un CRM.
 
 ## SEO y validación tras publicar
 

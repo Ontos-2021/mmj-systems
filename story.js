@@ -2,7 +2,6 @@
   const story = document.querySelector("[data-scroll-story]");
   if (!story) return;
 
-  const canScrub = Boolean(document.createElement("video").canPlayType('video/mp4; codecs="avc1.640028"'));
   const frame = story.querySelector("[data-story-frame]");
   const stage = story.querySelector(".story-stage");
   const chapters = story.querySelector(".story-chapters");
@@ -11,10 +10,13 @@
   const toggle = story.querySelector(".story-toggle");
   const header = document.querySelector(".site-header");
   const photos = document.querySelectorAll("[data-depth-photo]");
+  const canScrub = Boolean(document.createElement("video").canPlayType('video/mp4; codecs="avc1.640028"'));
   const mobile = matchMedia("(max-width: 56rem)");
   const compact = matchMedia("(max-height: 24rem), (max-width: 56rem) and (max-height: 33rem)");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const connection = navigator.connection;
+  const clamp = (value) => Math.max(0, Math.min(1, value));
+
   let enabled = false;
   let staticView = false;
   let failed = false;
@@ -26,37 +28,17 @@
   let video;
   let objectUrl;
 
-  const visiblePhotos = new Set();
-  if ("IntersectionObserver" in window) {
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) visiblePhotos.add(entry.target);
-        else visiblePhotos.delete(entry.target);
-      }
-      schedule();
-    }, { rootMargin: "80px 0px" });
-    photos.forEach((photo) => observer.observe(photo));
-  } else {
-    photos.forEach((photo) => visiblePhotos.add(photo));
-  }
-
-  const clamp = (value) => Math.max(0, Math.min(1, value));
-
   function paintDepth(height, headerHeight) {
     const hero = story.getBoundingClientRect();
-    const planes = [];
-    for (const photo of visiblePhotos) {
-      const bounds = photo.getBoundingClientRect();
-      if (bounds.bottom <= 0 || bounds.top >= height) continue;
-      const progress = clamp((height - bounds.top) / (height + bounds.height));
-      planes.push([photo, progress - 0.5]);
-    }
     if (hero.bottom > 0 && hero.top < height) {
       const progress = clamp((headerHeight - hero.top) / Math.max(1, hero.height - height));
       story.style.setProperty("--depth-progress", progress);
     }
-    for (const [photo, offset] of planes) {
-      photo.style.setProperty("--photo-offset", offset);
+    for (const photo of photos) {
+      const bounds = photo.getBoundingClientRect();
+      if (bounds.bottom <= 0 || bounds.top >= height) continue;
+      const progress = clamp((height - bounds.top) / (height + bounds.height));
+      photo.style.setProperty("--photo-offset", progress - 0.5);
     }
   }
 
@@ -78,10 +60,7 @@
 
   function showFallback() {
     failed = true;
-    discardMedia();
-    story.setAttribute("data-static", "");
-    document.documentElement.removeAttribute("data-depth-motion");
-    toggle.hidden = true;
+    updateMode();
   }
 
   async function loadMedia() {
@@ -92,7 +71,7 @@
     }, 20000);
     try {
       const source = mobile.matches ? frame.dataset.mobile : frame.dataset.desktop;
-      // A local Blob keeps the file seekable even on static servers without Range support.
+      // A local Blob allows backward seeks even on static servers without Range support.
       const response = await fetch(source, { signal: pending.signal, priority: "low" });
       if (!response.ok) throw new Error("Story clip unavailable");
       const blob = await response.blob();
@@ -108,20 +87,16 @@
       clip.preload = "auto";
       clip.disablePictureInPicture = true;
       clip.addEventListener("loadedmetadata", schedule);
+      clip.addEventListener("loadeddata", () => {
+        if (video === clip) {
+          clearTimeout(loadDeadline);
+          schedule();
+        }
+      });
       clip.addEventListener("seeked", () => {
         if (video !== clip) return;
-        if (clip.readyState >= 2) {
-          clearTimeout(loadDeadline);
-          frame.setAttribute("data-painted", "");
-        }
+        if (clip.readyState >= 2) frame.setAttribute("data-painted", "");
         schedule();
-      });
-      clip.addEventListener("loadeddata", () => {
-        if (video !== clip) return;
-        clearTimeout(loadDeadline);
-        if (!clip.seeking && clip.currentTime > 0) {
-          frame.setAttribute("data-painted", "");
-        }
       });
       clip.addEventListener("error", () => {
         if (video === clip) showFallback();
@@ -141,12 +116,11 @@
       counter.textContent = `0${current + 1} / 0${steps.length}`;
     }
     story.style.setProperty("--story-progress", progress);
-    // The poster depicts frame zero and is available even while a seek is pending.
+    // The poster is the first frame; keep it visible until a seek finishes.
     frame.toggleAttribute("data-at-start", progress === 0);
   }
 
   function seekVideo(progress) {
-    // Do not queue a second seek until the decoder finishes the current one.
     if (!video || video.seeking || !Number.isFinite(video.duration)) return;
     const target = progress * Math.max(0, video.duration - 0.042);
     if (Math.abs(video.currentTime - target) > 0.019) {
@@ -159,16 +133,15 @@
   }
 
   function updateStory(height, headerHeight) {
-    if (!canScrub || !engaged) return;
+    if (!engaged) return;
     const region = chapters.getBoundingClientRect();
     if (region.bottom <= 0) return;
     if (region.top > height + 180) {
-      // A jump to the logo can leave the film on screen with the chapters far below.
       paintStory(0, 0);
       seekVideo(0);
       return;
     }
-    // Track the reading area below the pinned film on mobile, beside it on desktop.
+    // On phones the reading line is below the pinned film, on desktop beside it.
     const line = mobile.matches
       ? Math.min(height - 46, headerHeight + stage.offsetHeight + 34)
       : height * 0.56;
@@ -187,7 +160,7 @@
 
   function update() {
     animation = 0;
-    if (!enabled || staticView || failed) return;
+    if (!enabled) return;
     const height = window.innerHeight;
     const headerHeight = header.offsetHeight;
     paintDepth(height, headerHeight);
@@ -195,22 +168,26 @@
   }
 
   function schedule() {
-    if (enabled && !staticView && !failed && !animation) animation = requestAnimationFrame(update);
+    if (enabled && !animation) animation = requestAnimationFrame(update);
   }
 
   function updateMode() {
-    enabled = !(reduced.matches || compact.matches || connection?.saveData);
-    story.toggleAttribute("data-motion", enabled && canScrub);
-    story.toggleAttribute("data-static", staticView || failed);
-    document.documentElement.toggleAttribute("data-depth-motion", enabled && !staticView && !failed);
-    toggle.hidden = !enabled || failed;
-    if (!enabled || staticView) discardMedia();
-    else schedule();
+    const available = canScrub && !failed && !reduced.matches && !compact.matches && !connection?.saveData;
+    enabled = available && !staticView;
+    toggle.hidden = !available;
+    toggle.setAttribute("aria-pressed", String(staticView));
+    document.documentElement.toggleAttribute("data-depth-motion", enabled);
+    story.toggleAttribute("data-motion", enabled);
+    if (enabled) schedule();
+    else {
+      cancelAnimationFrame(animation);
+      animation = 0;
+      discardMedia();
+    }
   }
 
   toggle.addEventListener("click", () => {
     staticView = !staticView;
-    toggle.setAttribute("aria-pressed", String(staticView));
     updateMode();
   });
   window.addEventListener("scroll", () => {
@@ -219,11 +196,12 @@
   }, { passive: true });
   window.addEventListener("resize", schedule);
   window.addEventListener("pagehide", () => {
+    enabled = false;
     cancelAnimationFrame(animation);
     animation = 0;
     discardMedia();
   });
-  window.addEventListener("pageshow", schedule);
+  window.addEventListener("pageshow", updateMode);
   mobile.addEventListener("change", () => {
     discardMedia();
     failed = false;
