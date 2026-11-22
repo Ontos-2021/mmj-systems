@@ -5,6 +5,10 @@ import smtplib
 import threading
 import unittest
 from contextlib import redirect_stderr
+from email import policy
+from email.parser import BytesParser
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import app
@@ -84,13 +88,38 @@ class ContactoTest(unittest.TestCase):
             self.assertEqual(mensaje["From"].addresses[0].addr_spec, self.buzon)
             self.assertEqual(mensaje["Reply-To"], self.buzon)
             self.assertEqual(mensaje["Auto-Submitted"], "auto-replied")
-            self.assertIn("josemercado.cl", mensaje.get_content())
-            self.assertNotIn(self.payload["mensaje"], mensaje.get_content())
+            correo = BytesParser(policy=policy.default).parsebytes(mensaje.as_bytes(policy=policy.SMTP))
+            self.assertEqual(correo.get_content_type(), "multipart/alternative")
+            texto, relacionado = list(correo.iter_parts())
+            self.assertEqual(texto.get_content_type(), "text/plain")
+            self.assertEqual(relacionado.get_content_type(), "multipart/related")
+            self.assertEqual(relacionado.get_param("type"), "text/html")
+            html, imagen = list(relacionado.iter_parts())
+            self.assertEqual(html.get_content_type(), "text/html")
+            self.assertEqual(imagen.get_content_type(), "image/png")
+            self.assertEqual(imagen.get_content_disposition(), "inline")
+            self.assertEqual(imagen.get_payload(decode=True), app.CONFIRMACION_MONOGRAMA.read_bytes())
+            self.assertIn(f'src="cid:{imagen["Content-ID"][1:-1]}"', html.get_content())
+            self.assertNotIn("{{MONOGRAMA_CID}}", html.get_content())
+            for part in (texto, html):
+                self.assertIn("Recibí tu mensaje", part.get_content())
+                self.assertIn("https://josemercado.cl/", part.get_content())
+                self.assertNotIn(self.payload["mensaje"], part.get_content())
             status, _, body = self.request("POST", "/contacto", self.origin, self.payload)
             self.assertEqual(status, 200)
             self.assertEqual(json.loads(body), {"ok": True, "confirmacion_enviada": False})
             self.assertEqual(smtp.call_count, 3)
             self.assertEqual(smtp.call_args.kwargs["destinatario"], self.buzon)
+
+    def test_si_falta_la_plantilla_envia_confirmacion_en_texto(self):
+        with TemporaryDirectory() as tmp, self.configured(
+            CONFIRMACION_HTML=Path(tmp) / "no-existe.html"
+        ), patch.object(app, "enviar_por_smtp") as smtp, patch.object(app, "log") as log:
+            self.assertTrue(app.enviar_confirmacion(self.payload["email"]))
+            mensaje = smtp.call_args.args[0]
+            self.assertEqual(mensaje.get_content_type(), "text/plain")
+            self.assertIn("Recibí tu mensaje", mensaje.get_content())
+            self.assertEqual(log.call_args_list[0].args[0]["evento"], "confirmacion_solo_texto")
 
     def test_si_falla_el_acuse_la_consulta_sigue_aceptada(self):
         with self.configured(), patch.object(app, "enviar_por_smtp", side_effect=(

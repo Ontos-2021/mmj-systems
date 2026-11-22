@@ -34,6 +34,7 @@ from email.headerregistry import Address
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Lock
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -62,15 +63,19 @@ CONFIRMACION_ACTIVA = env("CONFIRMACION_ACTIVA").strip().lower() in {"1", "true"
 CONFIRMACION_MAX_POR_HORA = int(env("CONFIRMACION_MAX_POR_HORA", "20"))
 CONFIRMACION_VENTANA_SEG = 3600
 CONFIRMACION_ASUNTO = "Recibí tu mensaje | José Mercado"
-CONFIRMACION_TEXTO = """Gracias por escribirme.
+CONFIRMACION_TEXTO = """Recibí tu mensaje.
 
-Recibí tu mensaje a través del formulario de josemercado.cl y te responderé personalmente a este correo. Si quieres agregar algo, puedes responder a este mensaje.
+Gracias por escribirme. Recibí tu consulta y te responderé personalmente a esta dirección.
 
-Si no enviaste una consulta, puedes ignorar este correo.
+Si quieres agregar algo, responde directamente a este correo.
 
 José Mercado
-josemercado.cl
+https://josemercado.cl/
+
+Este correo es automático. Si no enviaste una consulta, puedes ignorarlo.
 """
+CONFIRMACION_HTML = Path(__file__).with_name("confirmacion.html")
+CONFIRMACION_MONOGRAMA = Path(__file__).with_name("monograma-jm.png")
 
 _intentos = {}
 _confirmaciones = {}
@@ -167,6 +172,21 @@ def enviar_correo(payload):
     enviar_por_smtp(msg, timeout=20, destinatario=TO_EMAIL)
 
 
+def agregar_html_confirmacion(msg):
+    try:
+        plantilla = CONFIRMACION_HTML.read_text(encoding="utf-8")
+        monograma = CONFIRMACION_MONOGRAMA.read_bytes()
+    except (OSError, UnicodeError) as exc:
+        log({"evento": "confirmacion_solo_texto", "tipo": type(exc).__name__})
+        return
+
+    cid = make_msgid(domain=CONTACT_SITE)
+    msg.add_alternative(plantilla.replace("{{MONOGRAMA_CID}}", cid[1:-1]), subtype="html")
+    tarjeta = msg.get_payload()[-1]
+    tarjeta.add_related(monograma, maintype="image", subtype="png", cid=cid)
+    tarjeta.set_param("type", "text/html")
+
+
 def enviar_confirmacion(email):
     if not reservar_confirmacion(email):
         return False
@@ -183,6 +203,7 @@ def enviar_confirmacion(email):
         msg["Auto-Submitted"] = "auto-replied"
         msg["X-Auto-Response-Suppress"] = "All"
         msg.set_content(CONFIRMACION_TEXTO)
+        agregar_html_confirmacion(msg)
         enviar_por_smtp(msg, timeout=8, destinatario=destino.addr_spec)
     except (OSError, ValueError, HeaderParseError) as exc:
         log_error_smtp("error_confirmacion", exc)

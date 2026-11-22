@@ -17,6 +17,13 @@ instancia. Esos contadores viven en memoria. Si el acuse falla o se omite,
 la consulta sigue aceptada y la API devuelve `ok: true` y
 `confirmacion_enviada: false`.
 
+El acuse usa `confirmacion.html` con una versión alternativa en texto
+plano. `monograma-jm.png` es la exportación a 128 × 128 del monograma
+aprobado de `jose-mercado-cv/assets/monograma-jm.svg`; viaja dentro
+del correo, sin píxeles de seguimiento ni solicitudes externas.
+La plantilla toma la paleta Señal verde y usa fuentes de sistema si el
+cliente no dispone de Space Grotesk e Inter.
+
 Prueba local sin enviar correo: `python3 -B -m unittest discover -s contact-api`.
 
 ## Referencia: despliegue original de MMJ Systems

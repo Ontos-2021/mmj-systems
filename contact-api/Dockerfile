@@ -3,7 +3,7 @@ FROM python:3.12-slim
 
 RUN useradd --create-home --uid 10001 app
 WORKDIR /app
-COPY app.py .
+COPY app.py confirmacion.html monograma-jm.png ./
 
 ENV HOST=0.0.0.0 \
     PORT=8471 \
