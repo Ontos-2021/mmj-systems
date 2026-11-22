@@ -9,6 +9,14 @@ SMTP se establecen en la aplicación de Coolify y no se comparten con MMJ.
 `GET /salud` comprueba el proceso sin enviar correo. Una consulta válida
 recibe `503` si todavía falta la configuración SMTP.
 
+Con `CONFIRMACION_ACTIVA=true`, si Gmail acepta la notificación a José,
+la API intenta enviar un acuse al correo indicado en el formulario. El
+acuse tiene texto fijo y como máximo se intenta una vez por dirección
+por hora, con tope global `CONFIRMACION_MAX_POR_HORA` (20 por defecto) por
+instancia. Esos contadores viven en memoria. Si el acuse falla o se omite,
+la consulta sigue aceptada y la API devuelve `ok: true` y
+`confirmacion_enviada: false`.
+
 Prueba local sin enviar correo: `python3 -B -m unittest discover -s contact-api`.
 
 ## Referencia: despliegue original de MMJ Systems

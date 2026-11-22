@@ -9,14 +9,16 @@ Contrato:
     nombre (requerido, máx 80), email (requerido, máx 120),
     mensaje (requerido, máx 2000), empresa (opcional, máx 80),
     sitio (honeypot: si viene con contenido se responde éxito falso).
-  Responde JSON {"ok": true} o {"ok": false, "error": "..."}.
+  Responde JSON {"ok": true, "confirmacion_enviada": true/false}
+  o {"ok": false, "error": "..."}.
   GET /salud  -> {"ok": true} (chequeo de vida).
   OPTIONS     -> preflight CORS.
 
 Configuración por variables de entorno (ver mmj-contact-api.env.ejemplo):
   HOST, PORT, ALLOWED_ORIGINS, CONTACT_SITE, TO_EMAIL, FROM_EMAIL,
   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
-  RATE_MAX, RATE_VENTANA_SEG, STORE_FILE, LOG_FILE.
+  RATE_MAX, RATE_VENTANA_SEG, STORE_FILE, LOG_FILE,
+  CONFIRMACION_ACTIVA, CONFIRMACION_MAX_POR_HORA.
 """
 
 import json
@@ -24,10 +26,15 @@ import os
 import re
 import smtplib
 import ssl
+import sys
 import time
 import urllib.parse
+from email.errors import HeaderParseError
+from email.headerregistry import Address
 from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Lock
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MAX_BODY = 64 * 1024
@@ -51,8 +58,23 @@ RATE_MAX = int(env("RATE_MAX", "5"))
 RATE_VENTANA_SEG = int(env("RATE_VENTANA_SEG", "3600"))
 STORE_FILE = env("STORE_FILE", "/var/lib/mmj-contact-api/mensajes.jsonl")
 LOG_FILE = env("LOG_FILE", "/var/lib/mmj-contact-api/api.log")
+CONFIRMACION_ACTIVA = env("CONFIRMACION_ACTIVA").strip().lower() in {"1", "true"}
+CONFIRMACION_MAX_POR_HORA = int(env("CONFIRMACION_MAX_POR_HORA", "20"))
+CONFIRMACION_VENTANA_SEG = 3600
+CONFIRMACION_ASUNTO = "Recibí tu mensaje | José Mercado"
+CONFIRMACION_TEXTO = """Gracias por escribirme.
+
+Recibí tu mensaje a través del formulario de josemercado.cl y te responderé personalmente a este correo. Si quieres agregar algo, puedes responder a este mensaje.
+
+Si no enviaste una consulta, puedes ignorar este correo.
+
+José Mercado
+josemercado.cl
+"""
 
 _intentos = {}
+_confirmaciones = {}
+_lock_confirmaciones = Lock()
 
 
 def correo_configurado():
@@ -84,6 +106,15 @@ def guardar_mensaje(payload, ip):
         pass
 
 
+def log_error_smtp(evento, exc):
+    # Log the error class and SMTP status, never the credentials, addresses or reply text.
+    datos = {"evento": evento, "tipo": type(exc).__name__}
+    if isinstance(exc, smtplib.SMTPResponseException):
+        datos["estado_smtp"] = exc.smtp_code
+    log(datos)
+    print(json.dumps(datos), file=sys.stderr, flush=True)
+
+
 def excede_limite(ip):
     ahora = time.time()
     marcas = [m for m in _intentos.get(ip, []) if ahora - m < RATE_VENTANA_SEG]
@@ -93,6 +124,28 @@ def excede_limite(ip):
     marcas.append(ahora)
     _intentos[ip] = marcas
     return False
+
+
+def reservar_confirmacion(email):
+    if not CONFIRMACION_ACTIVA:
+        return False
+    ahora = time.monotonic()
+    destino = email.casefold()
+    with _lock_confirmaciones:
+        for correo, marca in list(_confirmaciones.items()):
+            if ahora - marca >= CONFIRMACION_VENTANA_SEG:
+                del _confirmaciones[correo]
+        if destino in _confirmaciones or len(_confirmaciones) >= CONFIRMACION_MAX_POR_HORA:
+            return False
+        _confirmaciones[destino] = ahora
+        return True
+
+
+def enviar_por_smtp(mensaje, *, timeout, destinatario):
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=timeout) as smtp:
+        smtp.starttls(context=ssl.create_default_context())
+        smtp.login(SMTP_USER, SMTP_PASS)
+        smtp.send_message(mensaje, to_addrs=[destinatario])
 
 
 def enviar_correo(payload):
@@ -105,16 +158,46 @@ def enviar_correo(payload):
     msg["Subject"] = asunto
     msg["From"] = remitente
     msg["To"] = TO_EMAIL
-    msg["Reply-To"] = payload["email"]
+    msg["Reply-To"] = Address(addr_spec=payload["email"])
     msg.set_content(
         "Nombre: {}\nEmpresa: {}\nCorreo: {}\n\n{}".format(
             payload["nombre"], empresa or "-", payload["email"], payload["mensaje"]
         )
     )
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
-        s.starttls(context=ssl.create_default_context())
-        s.login(SMTP_USER, SMTP_PASS)
-        s.send_message(msg)
+    enviar_por_smtp(msg, timeout=20, destinatario=TO_EMAIL)
+
+
+def enviar_confirmacion(email):
+    if not reservar_confirmacion(email):
+        return False
+    try:
+        destino = Address(addr_spec=email)
+        remitente = Address(addr_spec=FROM_EMAIL or SMTP_USER)
+        msg = EmailMessage()
+        msg["Subject"] = CONFIRMACION_ASUNTO
+        msg["From"] = Address("José Mercado", remitente.username, remitente.domain)
+        msg["To"] = destino
+        msg["Reply-To"] = TO_EMAIL
+        msg["Date"] = formatdate(usegmt=True)
+        msg["Message-ID"] = make_msgid(domain=CONTACT_SITE)
+        msg["Auto-Submitted"] = "auto-replied"
+        msg["X-Auto-Response-Suppress"] = "All"
+        msg.set_content(CONFIRMACION_TEXTO)
+        enviar_por_smtp(msg, timeout=8, destinatario=destino.addr_spec)
+    except (OSError, ValueError, HeaderParseError) as exc:
+        log_error_smtp("error_confirmacion", exc)
+        return False
+    log({"evento": "confirmacion"})
+    return True
+
+
+def email_valido(email):
+    if len(email) > 120 or not EMAIL_RE.fullmatch(email):
+        return False
+    try:
+        return Address(addr_spec=email).addr_spec == email
+    except (ValueError, HeaderParseError):
+        return False
 
 
 def validar(payload):
@@ -124,7 +207,7 @@ def validar(payload):
     empresa = str(payload.get("empresa", "")).strip()
     if len(nombre) < 2 or len(nombre) > 80:
         return None, "nombre inválido"
-    if not EMAIL_RE.match(email) or len(email) > 120:
+    if not email_valido(email):
         return None, "correo inválido"
     if len(mensaje) < 10 or len(mensaje) > 2000:
         return None, "mensaje inválido"
@@ -207,7 +290,7 @@ class Handler(BaseHTTPRequestHandler):
         if str(payload.get("sitio", "")).strip():
             # Honeypot: parece bot, éxito falso sin hacer nada.
             log({"evento": "honeypot", "ip": ip})
-            self._responder(200, {"ok": True}, origen)
+            self._responder(200, {"ok": True, "confirmacion_enviada": True}, origen)
             return
         datos, error = validar(payload)
         if error:
@@ -223,12 +306,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             enviar_correo(datos)
         except Exception as exc:  # noqa: BLE001 - se reporta como fallo al cliente
-            log({"evento": "error_correo", "tipo": type(exc).__name__})
+            log_error_smtp("error_correo", exc)
             self._responder(502, {"ok": False, "error": "no se pudo enviar"}, origen)
             return
         guardar_mensaje(datos, ip)
         log({"evento": "mensaje", "ip": ip, "email": datos["email"]})
-        self._responder(200, {"ok": True}, origen)
+        confirmacion = enviar_confirmacion(datos["email"])
+        self._responder(200, {"ok": True, "confirmacion_enviada": confirmacion}, origen)
 
     def log_message(self, format, *args):  # noqa: A002 - firma de stdlib
         pass
