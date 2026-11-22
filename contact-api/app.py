@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Endpoint de contacto de mmjsystems.cl.
+"""Endpoint de contacto para una web estática.
 
 Recibe el formulario de la web estática (GitHub Pages) y lo reenvía por
-correo a MMJ Systems. Solo usa la biblioteca estándar de Python.
+correo al buzón configurado. Solo usa la biblioteca estándar de Python.
 
 Contrato:
   POST /contacto   JSON o formulario con:
@@ -14,7 +14,7 @@ Contrato:
   OPTIONS     -> preflight CORS.
 
 Configuración por variables de entorno (ver mmj-contact-api.env.ejemplo):
-  HOST, PORT, ALLOWED_ORIGINS, TO_EMAIL, FROM_EMAIL,
+  HOST, PORT, ALLOWED_ORIGINS, CONTACT_SITE, TO_EMAIL, FROM_EMAIL,
   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS,
   RATE_MAX, RATE_VENTANA_SEG, STORE_FILE, LOG_FILE.
 """
@@ -23,6 +23,7 @@ import json
 import os
 import re
 import smtplib
+import ssl
 import time
 import urllib.parse
 from email.message import EmailMessage
@@ -39,7 +40,8 @@ def env(name, default=""):
 HOST = env("HOST", "127.0.0.1")
 PORT = int(env("PORT", "8471"))
 ALLOWED_ORIGINS = [o.strip() for o in env("ALLOWED_ORIGINS", "").split(",") if o.strip()]
-TO_EMAIL = env("TO_EMAIL", "contacto.mmjsystems@gmail.com")
+CONTACT_SITE = env("CONTACT_SITE", "josemercado.cl")
+TO_EMAIL = env("TO_EMAIL", "")
 FROM_EMAIL = env("FROM_EMAIL", "")
 SMTP_HOST = env("SMTP_HOST", "")
 SMTP_PORT = int(env("SMTP_PORT", "587"))
@@ -51,6 +53,10 @@ STORE_FILE = env("STORE_FILE", "/var/lib/mmj-contact-api/mensajes.jsonl")
 LOG_FILE = env("LOG_FILE", "/var/lib/mmj-contact-api/api.log")
 
 _intentos = {}
+
+
+def correo_configurado():
+    return bool(SMTP_HOST and SMTP_USER and SMTP_PASS and TO_EMAIL)
 
 
 def log(evento):
@@ -93,9 +99,9 @@ def enviar_correo(payload):
     remitente = FROM_EMAIL or SMTP_USER
     msg = EmailMessage()
     empresa = payload.get("empresa", "").strip()
-    asunto = "[mmjsystems.cl] " + payload["nombre"]
+    asunto = f"[{CONTACT_SITE}] " + " ".join(payload["nombre"].split())
     if empresa:
-        asunto += " — " + empresa
+        asunto += " — " + " ".join(empresa.split())
     msg["Subject"] = asunto
     msg["From"] = remitente
     msg["To"] = TO_EMAIL
@@ -106,9 +112,8 @@ def enviar_correo(payload):
         )
     )
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
-        s.starttls()
-        if SMTP_USER:
-            s.login(SMTP_USER, SMTP_PASS)
+        s.starttls(context=ssl.create_default_context())
+        s.login(SMTP_USER, SMTP_PASS)
         s.send_message(msg)
 
 
@@ -129,7 +134,7 @@ def validar(payload):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "MMJContact/1.0"
+    server_version = "ContactAPI/1.0"
 
     def _origen_permitido(self):
         origen = self.headers.get("Origin", "")
@@ -139,6 +144,7 @@ class Handler(BaseHTTPRequestHandler):
         datos = json.dumps(cuerpo).encode("utf-8")
         self.send_response(codigo)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(datos)))
         if origen:
             self.send_header("Access-Control-Allow-Origin", origen)
@@ -171,8 +177,11 @@ class Handler(BaseHTTPRequestHandler):
             ip = self.client_address[0]
         except (TypeError, IndexError):
             ip = "?"
-        if ruta not in ("/contacto", "/"):
+        if ruta != "/contacto":
             self._responder(404, {"ok": False, "error": "no encontrado"}, origen)
+            return
+        if not origen:
+            self._responder(403, {"ok": False, "error": "origen no permitido"})
             return
         try:
             largo = int(self.headers.get("Content-Length", "0"))
@@ -204,6 +213,9 @@ class Handler(BaseHTTPRequestHandler):
         if error:
             self._responder(400, {"ok": False, "error": error}, origen)
             return
+        if not correo_configurado():
+            self._responder(503, {"ok": False, "error": "envío no disponible"}, origen)
+            return
         if excede_limite(ip):
             log({"evento": "limite", "ip": ip})
             self._responder(429, {"ok": False, "error": "demasiados intentos"}, origen)
@@ -211,7 +223,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             enviar_correo(datos)
         except Exception as exc:  # noqa: BLE001 - se reporta como fallo al cliente
-            log({"evento": "error_correo", "ip": ip, "detalle": str(exc)[:200]})
+            log({"evento": "error_correo", "tipo": type(exc).__name__})
             self._responder(502, {"ok": False, "error": "no se pudo enviar"}, origen)
             return
         guardar_mensaje(datos, ip)

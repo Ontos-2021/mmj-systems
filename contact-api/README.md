@@ -1,4 +1,17 @@
-# contact-api — endpoint del formulario (Hetzner)
+# contact-api — instancia de josemercado.cl
+
+La rama `contacto-josemercado` se despliega como una aplicación separada en
+Coolify. El endpoint es `https://api.josemercado.cl/contacto`; solo acepta
+los orígenes web incluidos en `ALLOWED_ORIGINS`. `CONTACT_SITE` configura
+el prefijo del asunto. Las direcciones de destinatario, remitente y usuario
+SMTP se establecen en la aplicación de Coolify y no se comparten con MMJ.
+`SMTP_PASS` se agrega en producción como variable exclusiva de ejecución.
+`GET /salud` comprueba el proceso sin enviar correo. Una consulta válida
+recibe `503` si todavía falta la configuración SMTP.
+
+Prueba local sin enviar correo: `python3 -B -m unittest discover -s contact-api`.
+
+## Referencia: despliegue original de MMJ Systems
 
 Servicio mínimo, solo biblioteca estándar de Python, sin dependencias.
 Recibe `POST /contacto` desde `https://mmjsystems.cl/` y lo reenvía por
