@@ -80,8 +80,21 @@ del navegador.
   La canónica es el subdominio. Usa rutas desde la raíz (`/styles.css`,
   `/assets/…`) para funcionar en ambos hosts.
 - Precio público ($5.990 IVA incluido por RBD) aprobado por José el 27-11-2026.
+  Se paga al recibir la planilla, con un link de pago de Mercado Pago que va en
+  la respuesta por correo (no se publica en la página).
 - Sin formulario: el contacto es por correo a clientes@mmjsystems.cl, para no
   tocar los orígenes permitidos de `contact-api/`.
+- Infraestructura del subdominio:
+  - **DNS (Cloudflare):** registro `A escuelas → 46.62.144.39`, solo DNS, sin proxy.
+  - **Coolify:** la app «MMJ Systems Web» tiene el dominio `https://escuelas.mmjsystems.cl`
+    junto al de vista previa. El certificado lo emite Traefik (Let's Encrypt).
+  - **Publicar un cambio:** hacer push a `main` (GitHub Pages se actualiza solo) y
+    después lanzar un deploy de esa app en Coolify, porque no se despliega sola.
+  - **Si el candado no aparece** tras crear un registro DNS nuevo: Cloudflare guarda
+    hasta 30 minutos que el nombre no existía. Esperar y volver a lanzar el deploy.
+- La operación del servicio (convertidor, bandeja de pedidos, borradores y la
+  atención con Hermes) vive en un repositorio privado aparte, no en este repo
+  público, porque maneja datos personales de trabajadores.
 
 ## Publicar
 
