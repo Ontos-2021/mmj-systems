@@ -3,6 +3,7 @@ FROM nginx:alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY index.html 404.html robots.txt sitemap.xml styles.css main.js story.js /usr/share/nginx/html/
 COPY estudios-juridicos/ /usr/share/nginx/html/estudios-juridicos/
+COPY escuelas/ /usr/share/nginx/html/escuelas/
 COPY guias/ /usr/share/nginx/html/guias/
 COPY assets/ /usr/share/nginx/html/assets/
 

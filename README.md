@@ -61,7 +61,8 @@ del navegador.
 - Las tres páginas tienen títulos, descripciones y canónicas propios, y se
   incluyen en `sitemap.xml`. El contenido está disponible sin JavaScript.
 - La portada declara `Organization` y `WebSite`; la página jurídica, `Service`;
-  la guía, `Article`. No se declaran precios ni datos de contacto no verificados.
+  la guía, `Article`. No se declaran precios ni datos de contacto no verificados,
+  salvo en el vertical de escuelas (ver abajo).
 - En Nginx, `www.mmjsystems.cl` redirige al dominio canónico y los demás hosts de
   vista previa reciben `X-Robots-Tag: noindex, nofollow`. El proxy debe preservar
   el encabezado `Host`; no bloquees el rastreo del HTML en `robots.txt`, para que
@@ -70,6 +71,17 @@ del navegador.
   enviarlo en Search Console e inspeccionar las tres URLs. Revisar indexación,
   impresiones, clics y consultas por página, filtrando Chile. No requiere
   instalar píxeles ni cookies.
+
+## Vertical escuelas
+
+- `escuelas/index.html` — «Planilla Aguinaldo Express» para sostenedores. Se
+  sirve en `https://escuelas.mmjsystems.cl/` (Coolify, bloque `server` propio en
+  `nginx.conf`) y también en `https://mmjsystems.cl/escuelas/` (GitHub Pages).
+  La canónica es el subdominio. Usa rutas desde la raíz (`/styles.css`,
+  `/assets/…`) para funcionar en ambos hosts.
+- Precio público ($5.990 IVA incluido por RBD) aprobado por José el 27-11-2026.
+- Sin formulario: el contacto es por correo a clientes@mmjsystems.cl, para no
+  tocar los orígenes permitidos de `contact-api/`.
 
 ## Publicar
 
